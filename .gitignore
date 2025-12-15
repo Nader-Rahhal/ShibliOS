@@ -1,0 +1,8 @@
+# Build artifacts
+bin/
+obj/
+iso_root/
+image.iso
+
+# Limine repo if you don't track it
+limine/
