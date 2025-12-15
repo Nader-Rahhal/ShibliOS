@@ -17,6 +17,7 @@ struct idtr {
     uint16_t limit;    // Size of IDT - 1
     uint64_t base;     // Address of IDT
 } __attribute__((packed));
+
 typedef struct {
     uint16_t isr_low;      // Lower 16 bits of ISR address
     uint16_t selector;     // Code segment selector
@@ -26,6 +27,7 @@ typedef struct {
     uint32_t isr_high;     // Upper 32 bits of ISR address
     uint32_t reserved;     // Reserved, must be 0
 } idt_entry_t __attribute__((packed));
+
 struct interrupt_frame {
     uint64_t r15, r14, r13, r12, r11, r10, r9, r8;
     uint64_t rbp, rdi, rsi, rdx, rcx, rbx, rax;
@@ -51,8 +53,15 @@ static inline void set_idt_entry(uint8_t vector, void* isr, uint8_t flags) {
     descriptor->reserved  = 0;
 }
 
+// this will handle 
 void exception_handler(struct interrupt_frame *frame) {
     serial_write("\n=== EXCEPTION ===\n");
+
+    if (frame->int_no == 0) {
+        serial_write("Divide By Zero Exception\n");
+    } else {
+        serial_write("Unknown Exception\n");
+    }
     
     while (1) {
         asm volatile ("hlt");
@@ -60,9 +69,7 @@ void exception_handler(struct interrupt_frame *frame) {
 }
 
 static inline void idt_init(void) {
-    serial_write("Starting IDT init...\n");
     
-    // Clear the IDT
     for (int i = 0; i < 256; i++) {
         idt[i].isr_low = 0;
         idt[i].selector = 0;
@@ -72,53 +79,12 @@ static inline void idt_init(void) {
         idt[i].isr_high = 0;
         idt[i].reserved = 0;
     }
-    
-    serial_write("IDT cleared\n");
-    
-    // Get ISR address
-    uint64_t isr_addr = (uint64_t)isr_stub_0;
-    serial_write("isr_stub_0 address: ");
-    serial_write_hex(isr_addr);
-    serial_write("\n");
-    
-    // Set entry
+
     set_idt_entry(0, isr_stub_0, 0x8E);
     
-    // Verify it was set correctly
-    serial_write("IDT[0] after set:\n");
-    serial_write("  isr_low: ");
-    serial_write_hex(idt[0].isr_low);
-    serial_write("\n  selector: ");
-    serial_write_hex(idt[0].selector);
-    serial_write("\n  ist: ");
-    serial_write_hex(idt[0].ist);
-    serial_write("\n  attributes: ");
-    serial_write_hex(idt[0].attributes);
-    serial_write("\n  isr_mid: ");
-    serial_write_hex(idt[0].isr_mid);
-    serial_write("\n  isr_high: ");
-    serial_write_hex(idt[0].isr_high);
-    serial_write("\n");
-    
-    // Reconstruct address from IDT entry
-    uint64_t reconstructed = idt[0].isr_low | 
-                            ((uint64_t)idt[0].isr_mid << 16) | 
-                            ((uint64_t)idt[0].isr_high << 32);
-    serial_write("Reconstructed address: ");
-    serial_write_hex(reconstructed);
-    serial_write("\n");
-    
-    // Load the IDT
     struct idtr idtr;
     idtr.limit = (sizeof(idt_entry_t) * 256) - 1;
     idtr.base = (uint64_t)&idt;
-    
-    serial_write("Loading IDT:\n");
-    serial_write("  base: ");
-    serial_write_hex(idtr.base);
-    serial_write("\n  limit: ");
-    serial_write_hex(idtr.limit);
-    serial_write("\n");
     
     asm volatile("lidt %0" :: "m"(idtr));
     

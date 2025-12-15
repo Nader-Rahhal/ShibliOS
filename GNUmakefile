@@ -49,7 +49,7 @@ CFLAGS += \
 
 CPPFLAGS += \
     -I src \
-    -I limine \
+    -I include \
     -MMD \
     -MP
 

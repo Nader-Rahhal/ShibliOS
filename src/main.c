@@ -119,7 +119,6 @@ static struct limine_file *find_module(const char *name) {
 void kmain(void) {
 
     serial_init();
-    serial_write("\n=== myOS Booting ===\n");
 
     if (LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision) == false) {
         hcf();
@@ -163,8 +162,6 @@ void kmain(void) {
     DrawString(10, 30, "PSF1 font loaded successfully!", 0x00FF00, framebuffer, glyphs, hdr);
     
     idt_init();
-
-    serial_write("IDT loaded, about to divide by zero...\n");
 
     asm volatile(
         "mov $5, %%rax;"      // Dividend = 5
