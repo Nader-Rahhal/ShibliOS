@@ -76,6 +76,8 @@ override CFLAGS += \
 # Internal C preprocessor flags that should not be changed by the user.
 override CPPFLAGS := \
     -I src \
+    -I limine \
+    -I limine/common/protos \
     $(CPPFLAGS) \
     -MMD \
     -MP
@@ -95,14 +97,18 @@ override LDFLAGS += \
     --gc-sections \
     -T linker.lds
 
-# Use "find" to glob all *.c, *.S, and *.asm files in the tree and obtain the
-# object and header dependency file names.
+# Use "find" to glob all *.c, *.S, and *.asm files in src/
 override SRCFILES := $(shell find -L src -type f 2>/dev/null | LC_ALL=C sort)
 override CFILES := $(filter %.c,$(SRCFILES))
 override ASFILES := $(filter %.S,$(SRCFILES))
 override NASMFILES := $(filter %.asm,$(SRCFILES))
 override OBJ := $(addprefix obj/,$(CFILES:.c=.c.o) $(ASFILES:.S=.S.o) $(NASMFILES:.asm=.asm.o))
 override HEADER_DEPS := $(addprefix obj/,$(CFILES:.c=.c.d) $(ASFILES:.S=.S.d))
+
+# Limine source (explicitly added, not in src/)
+# LIMINE_C := limine/common/protos/limine.c
+# LIMINE_OBJ := obj/limine/common/protos/limine.c.o
+# override OBJ += $(LIMINE_OBJ)
 
 # Default target. This must come first, before header dependencies.
 .PHONY: all
@@ -130,6 +136,11 @@ obj/%.S.o: %.S GNUmakefile
 obj/%.asm.o: %.asm GNUmakefile
 	mkdir -p "$(dir $@)"
 	nasm $(NASMFLAGS) $< -o $@
+
+# Compilation rule for Limine
+# $(LIMINE_OBJ): $(LIMINE_C) GNUmakefile
+#	mkdir -p "$(dir $@)"
+#	$(CC) $(CFLAGS) -I limine -c $< -o $@
 
 # Remove object files and the final executable.
 .PHONY: clean
