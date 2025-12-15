@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include <limine.h>
 
+#include <draw.h>
+#include <interrupts.h>
 // Set the base revision to 4, this is recommended as this is the latest
 // base revision described by the Limine boot protocol specification.
 // See specification for further info.
@@ -21,6 +23,12 @@ static volatile struct limine_framebuffer_request framebuffer_request = {
     .revision = 0
 };
 
+__attribute__((used, section(".limine_requests")))
+static volatile struct limine_module_request module_request = {
+    .id = LIMINE_MODULE_REQUEST_ID,
+    .revision = 0
+};
+
 // Finally, define the start and end markers for the Limine requests.
 // These can also be moved anywhere, to any .c file, as seen fit.
 
@@ -29,6 +37,8 @@ static volatile uint64_t limine_requests_start_marker[] = LIMINE_REQUESTS_START_
 
 __attribute__((used, section(".limine_requests_end")))
 static volatile uint64_t limine_requests_end_marker[] = LIMINE_REQUESTS_END_MARKER;
+
+
 
 // GCC and Clang reserve the right to generate calls to the following
 // 4 functions even if they are not directly called.
@@ -94,6 +104,36 @@ static void hcf(void) {
     }
 }
 
+static struct limine_file *find_module(const char *name) {
+    if (!module_request.response) {
+        return NULL;
+    }
+
+    struct limine_module_response *resp = module_request.response;
+
+    for (uint64_t i = 0; i < resp->module_count; i++) {
+        struct limine_file *mod = resp->modules[i];
+        if (!mod || !mod->path) {
+            continue;
+        }
+
+        const char *p = mod->path;
+        const char *q = name;
+
+        while (*p && *q && *p == *q) {
+            p++;
+            q++;
+        }
+
+        if (*p == '\0' && *q == '\0') {
+            return mod;
+        }
+    }
+
+    return NULL;
+}
+
+
 // The following will be our kernel's entry point.
 // If renaming kmain() to something else, make sure to change the
 // linker script accordingly.
@@ -104,20 +144,48 @@ void kmain(void) {
     }
 
     // Ensure we got a framebuffer.
-    if (framebuffer_request.response == NULL
-     || framebuffer_request.response->framebuffer_count < 1) {
+    if (framebuffer_request.response == NULL || framebuffer_request.response->framebuffer_count < 1) {
         hcf();
     }
+
+    if (module_request.response == NULL || module_request.response->module_count < 1) {
+        hcf();
+    }
+
+    void *font_data;
+
+     struct limine_file *font = find_module("/boot/font.psf");
+
+
+    if (!font) {
+        hcf();; // we are egetting caught here
+    }
+
+    font_data = font->address;
+
+    struct psf1_header *hdr = font_data;
+
+    if (!verify_psf1(hdr)) {
+        hcf();
+    }
+
+    void *glyphs = (void *)((uintptr_t)font_data + sizeof(struct psf1_header));
 
     // Fetch the first framebuffer.
     struct limine_framebuffer *framebuffer = framebuffer_request.response->framebuffers[0];
 
     // Note: we assume the framebuffer model is RGB with 32-bit pixels.
-    for (size_t i = 0; i < 100; i++) {
-        volatile uint32_t *fb_ptr = framebuffer->address;
-        fb_ptr[i * (framebuffer->pitch / 4) + i] = 0xffffff;
+
+     for (size_t i = 0; i < framebuffer->height * framebuffer->width; i++) {
+        ((uint32_t*)framebuffer->address)[i] = 0x000000;
     }
 
+    DrawString(10, 10, "Hello from myOS!", 0xFFFFFF, framebuffer, glyphs, hdr);
+    DrawString(10, 30, "PSF1 font loaded successfully!", 0x00FF00, framebuffer, glyphs, hdr);
+    
+    enable_interrupts();
+
+    
     // We're done, just hang...
     hcf();
 }
