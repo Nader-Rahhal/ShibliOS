@@ -5,17 +5,9 @@
 
 #include <draw.h>
 #include <interrupts.h>
-// Set the base revision to 4, this is recommended as this is the latest
-// base revision described by the Limine boot protocol specification.
-// See specification for further info.
 
 __attribute__((used, section(".limine_requests")))
 static volatile uint64_t limine_base_revision[] = LIMINE_BASE_REVISION(4);
-
-// The Limine requests can be placed anywhere, but it is important that
-// the compiler does not optimise them away, so, usually, they should
-// be made volatile or equivalent, _and_ they should be accessed at least
-// once or marked as used with the "used" attribute as done here.
 
 __attribute__((used, section(".limine_requests")))
 static volatile struct limine_framebuffer_request framebuffer_request = {
@@ -29,22 +21,12 @@ static volatile struct limine_module_request module_request = {
     .revision = 0
 };
 
-// Finally, define the start and end markers for the Limine requests.
-// These can also be moved anywhere, to any .c file, as seen fit.
-
 __attribute__((used, section(".limine_requests_start")))
 static volatile uint64_t limine_requests_start_marker[] = LIMINE_REQUESTS_START_MARKER;
 
 __attribute__((used, section(".limine_requests_end")))
 static volatile uint64_t limine_requests_end_marker[] = LIMINE_REQUESTS_END_MARKER;
 
-
-
-// GCC and Clang reserve the right to generate calls to the following
-// 4 functions even if they are not directly called.
-// Implement them as the C specification mandates.
-// DO NOT remove or rename these functions, or stuff will eventually break!
-// They CAN be moved to a different .c file.
 
 void *memcpy(void *restrict dest, const void *restrict src, size_t n) {
     uint8_t *restrict pdest = (uint8_t *restrict)dest;
@@ -97,7 +79,6 @@ int memcmp(const void *s1, const void *s2, size_t n) {
     return 0;
 }
 
-// Halt and catch fire function.
 static void hcf(void) {
     for (;;) {
         asm ("hlt");
@@ -134,16 +115,16 @@ static struct limine_file *find_module(const char *name) {
 }
 
 
-// The following will be our kernel's entry point.
-// If renaming kmain() to something else, make sure to change the
-// linker script accordingly.
+
 void kmain(void) {
-    // Ensure the bootloader actually understands our base revision (see spec).
+
+    serial_init();
+    serial_write("\n=== myOS Booting ===\n");
+
     if (LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision) == false) {
         hcf();
     }
 
-    // Ensure we got a framebuffer.
     if (framebuffer_request.response == NULL || framebuffer_request.response->framebuffer_count < 1) {
         hcf();
     }
@@ -158,7 +139,7 @@ void kmain(void) {
 
 
     if (!font) {
-        hcf();; // we are egetting caught here
+        hcf();;
     }
 
     font_data = font->address;
@@ -171,10 +152,8 @@ void kmain(void) {
 
     void *glyphs = (void *)((uintptr_t)font_data + sizeof(struct psf1_header));
 
-    // Fetch the first framebuffer.
     struct limine_framebuffer *framebuffer = framebuffer_request.response->framebuffers[0];
 
-    // Note: we assume the framebuffer model is RGB with 32-bit pixels.
 
      for (size_t i = 0; i < framebuffer->height * framebuffer->width; i++) {
         ((uint32_t*)framebuffer->address)[i] = 0x000000;
@@ -183,9 +162,19 @@ void kmain(void) {
     DrawString(10, 10, "Hello from myOS!", 0xFFFFFF, framebuffer, glyphs, hdr);
     DrawString(10, 30, "PSF1 font loaded successfully!", 0x00FF00, framebuffer, glyphs, hdr);
     
-    enable_interrupts();
+    idt_init();
 
-    
-    // We're done, just hang...
+    serial_write("IDT loaded, about to divide by zero...\n");
+
+    asm volatile(
+        "mov $5, %%rax;"      // Dividend = 5
+        "xor %%rdx, %%rdx;"   // Clear high bits
+        "xor %%rcx, %%rcx;"   // Divisor = 0
+        "div %%rcx"           // This WILL trigger #DE
+        :
+        :
+        : "rax", "rdx", "rcx"
+    );
+
     hcf();
 }
