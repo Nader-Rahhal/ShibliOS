@@ -2,7 +2,69 @@
 #include <stdint.h>
 
 #include <serial.h>
+#include <pic.h>
+#include <draw.h>       
+#include <font.h>      
+#include <keyboard.h>
+
+
+
 #define MAX_NUM_IDT_ENTRIES 256
+
+extern void isr_stub_0(void);
+extern void isr_stub_1(void);
+extern void isr_stub_2(void);
+extern void isr_stub_3(void);
+extern void isr_stub_4(void);
+extern void isr_stub_5(void);
+extern void isr_stub_6(void);
+extern void isr_stub_7(void);
+extern void isr_stub_8(void);
+extern void isr_stub_9(void);
+extern void isr_stub_10(void);
+extern void isr_stub_11(void);
+extern void isr_stub_12(void);
+extern void isr_stub_13(void);
+extern void isr_stub_14(void);
+extern void isr_stub_15(void);
+extern void isr_stub_16(void);
+extern void isr_stub_17(void);
+extern void isr_stub_18(void);
+extern void isr_stub_19(void);
+extern void isr_stub_20(void);
+extern void isr_stub_21(void);
+extern void isr_stub_22(void);
+extern void isr_stub_23(void);
+extern void isr_stub_24(void);
+extern void isr_stub_25(void);
+extern void isr_stub_26(void);
+extern void isr_stub_27(void);
+extern void isr_stub_28(void);
+extern void isr_stub_29(void);
+extern void isr_stub_30(void);
+extern void isr_stub_31(void);
+
+extern void irq_stub_0(void);
+extern void irq_stub_1(void);
+
+extern struct limine_framebuffer *g_framebuffer;
+extern void *g_glyphs;
+extern struct psf1_header *g_hdr;
+extern int cursor_x;
+extern int cursor_y;
+extern bool shift_pressed;
+
+
+static void* isr_stubs[32] = {
+    isr_stub_0,  isr_stub_1,  isr_stub_2,  isr_stub_3,
+    isr_stub_4,  isr_stub_5,  isr_stub_6,  isr_stub_7,
+    isr_stub_8,  isr_stub_9,  isr_stub_10, isr_stub_11,
+    isr_stub_12, isr_stub_13, isr_stub_14, isr_stub_15,
+    isr_stub_16, isr_stub_17, isr_stub_18, isr_stub_19,
+    isr_stub_20, isr_stub_21, isr_stub_22, isr_stub_23,
+    isr_stub_24, isr_stub_25, isr_stub_26, isr_stub_27,
+    isr_stub_28, isr_stub_29, isr_stub_30, isr_stub_31
+};
 
 static inline void enable_interrupts(void) {
     asm volatile ("sti");
@@ -11,7 +73,6 @@ static inline void enable_interrupts(void) {
 static inline void disable_interrupts(void) {
     asm volatile ("cli");
 }
-
 
 struct idtr {
     uint16_t limit;    // Size of IDT - 1
@@ -26,7 +87,7 @@ typedef struct {
     uint16_t isr_mid;      // Middle 16 bits of ISR address
     uint32_t isr_high;     // Upper 32 bits of ISR address
     uint32_t reserved;     // Reserved, must be 0
-} idt_entry_t __attribute__((packed));
+} idt_entry_t;
 
 struct interrupt_frame {
     uint64_t r15, r14, r13, r12, r11, r10, r9, r8;
@@ -37,8 +98,6 @@ struct interrupt_frame {
 
 
 __attribute__((used)) static idt_entry_t idt[256];
-
-extern void isr_stub_0(void);
 
 static inline void set_idt_entry(uint8_t vector, void* isr, uint8_t flags) {
     idt_entry_t* descriptor = &idt[vector];
@@ -55,16 +114,189 @@ static inline void set_idt_entry(uint8_t vector, void* isr, uint8_t flags) {
 
 // this will handle 
 void exception_handler(struct interrupt_frame *frame) {
-    serial_write("\n=== EXCEPTION ===\n");
-
-    if (frame->int_no == 0) {
-        serial_write("Divide By Zero Exception\n");
-    } else {
-        serial_write("Unknown Exception\n");
+    // Disable interrupts immediately
+    asm volatile("cli");
+    
+    serial_write("\n\n");
+    serial_write("===   EXCEPTION TRIGGERED!   ===\n");
+    
+    serial_write("Exception Vector: ");
+    serial_write_dec(frame->int_no);
+    serial_write(" (0x");
+    serial_write_hex(frame->int_no);
+    serial_write(")\n");
+    
+    const char* exception_names[] = {
+        "Divide by Zero",
+        "Debug",
+        "Non-Maskable Interrupt",
+        "Breakpoint",
+        "Overflow",
+        "Bound Range Exceeded",
+        "Invalid Opcode",
+        "Device Not Available",
+        "Double Fault",
+        "Coprocessor Segment Overrun",
+        "Invalid TSS",
+        "Segment Not Present",
+        "Stack-Segment Fault",
+        "General Protection Fault",
+        "Page Fault",
+        "Reserved",
+        "x87 FPU Error",
+        "Alignment Check",
+        "Machine Check",
+        "SIMD Floating-Point Exception",
+        "Virtualization Exception",
+        "Control Protection Exception"
+    };
+    
+    if (frame->int_no < 22) {
+        serial_write("Name: ");
+        serial_write(exception_names[frame->int_no]);
+        serial_write("\n");
     }
     
+    serial_write("\n--- CPU State ---\n");
+    serial_write("Error Code:  ");
+    serial_write_hex(frame->error_code);
+    serial_write("\n");
+    
+    serial_write("RIP:         ");
+    serial_write_hex(frame->rip);
+    serial_write("\n");
+    
+    serial_write("CS:          ");
+    serial_write_hex(frame->cs);
+    serial_write("\n");
+    
+    serial_write("RFLAGS:      ");
+    serial_write_hex(frame->rflags);
+    serial_write("\n");
+    
+    serial_write("RSP:         ");
+    serial_write_hex(frame->rsp);
+    serial_write("\n");
+    
+    serial_write("SS:          ");
+    serial_write_hex(frame->ss);
+    serial_write("\n");
+    
+    serial_write("\n--- General Purpose Registers ---\n");
+    serial_write("RAX: ");
+    serial_write_hex(frame->rax);
+    serial_write("  RBX: ");
+    serial_write_hex(frame->rbx);
+    serial_write("\n");
+    
+    serial_write("RCX: ");
+    serial_write_hex(frame->rcx);
+    serial_write("  RDX: ");
+    serial_write_hex(frame->rdx);
+    serial_write("\n");
+    
+    serial_write("RSI: ");
+    serial_write_hex(frame->rsi);
+    serial_write("  RDI: ");
+    serial_write_hex(frame->rdi);
+    serial_write("\n");
+    
+    serial_write("RBP: ");
+    serial_write_hex(frame->rbp);
+    serial_write("\n");
+    
+    serial_write("\nR8:  ");
+    serial_write_hex(frame->r8);
+    serial_write("  R9:  ");
+    serial_write_hex(frame->r9);
+    serial_write("\n");
+    
+    serial_write("R10: ");
+    serial_write_hex(frame->r10);
+    serial_write("  R11: ");
+    serial_write_hex(frame->r11);
+    serial_write("\n");
+    
+    serial_write("R12: ");
+    serial_write_hex(frame->r12);
+    serial_write("  R13: ");
+    serial_write_hex(frame->r13);
+    serial_write("\n");
+    
+    serial_write("R14: ");
+    serial_write_hex(frame->r14);
+    serial_write("  R15: ");
+    serial_write_hex(frame->r15);
+    serial_write("\n");
+    
+    serial_write("\n================================\n");
+    serial_write("===   SYSTEM HALTED          ===\n");
+    serial_write("================================\n");
+    
     while (1) {
-        asm volatile ("hlt");
+        asm volatile("hlt");
+    }
+}
+
+void irq_handler(struct interrupt_frame *frame) {
+    uint64_t irq_num = frame->int_no - 32;
+    
+    if (irq_num == 0) {
+        send_eoi(0);
+        
+    } else if (irq_num == 1) {
+        uint8_t scancode = inb(0x60);
+        
+        if (scancode == SCANCODE_LSHIFT_PRESS || scancode == SCANCODE_RSHIFT_PRESS) {
+            shift_pressed = true;
+        } else if (scancode == SCANCODE_LSHIFT_RELEASE || scancode == SCANCODE_RSHIFT_RELEASE) {
+            shift_pressed = false;
+        }
+        else if (!(scancode & 0x80)) {
+            char c = 0;
+            
+            if (scancode < sizeof(scancode_to_ascii_lower)) {
+                if (shift_pressed) {
+                    c = scancode_to_ascii_upper[scancode];
+                } else {
+                    c = scancode_to_ascii_lower[scancode];
+                }
+            }
+            
+            if (c == '\b') {
+                if (cursor_x > 10) {
+                    cursor_x -= 8;
+                    for (int y = 0; y < g_hdr->charsize; y++) {
+                        for (int x = 0; x < 8; x++) {
+                            DrawPixel(cursor_x + x, cursor_y + y, 0x000000, g_framebuffer);
+                        }
+                    }
+                }
+            } else if (c == '\n') {
+                cursor_x = 10;
+                cursor_y += g_hdr->charsize;
+                
+                if (cursor_y >= g_framebuffer->height - g_hdr->charsize) {
+                    cursor_y = 50;
+                }
+            } else if (c != 0) {
+                DrawChar(cursor_x, cursor_y, c, 0xFFFFFF, g_framebuffer, g_glyphs, g_hdr);
+                cursor_x += 8;
+                
+                if (cursor_x >= g_framebuffer->width - 8) {
+                    cursor_x = 10;
+                    cursor_y += g_hdr->charsize;
+                    
+                    if (cursor_y >= g_framebuffer->height - g_hdr->charsize) {
+                        cursor_y = 50;
+                    }
+                }
+            }
+        }
+        
+        send_eoi(1);
+    } else {
+        send_eoi(irq_num);
     }
 }
 
@@ -80,13 +312,28 @@ static inline void idt_init(void) {
         idt[i].reserved = 0;
     }
 
-    set_idt_entry(0, isr_stub_0, 0x8E);
+    for (int i = 0; i < 32; i++) {
+        set_idt_entry(i, isr_stubs[i], 0x8E);
+    }
     
     struct idtr idtr;
-    idtr.limit = (sizeof(idt_entry_t) * 256) - 1;
+    idtr.limit = (sizeof(idt_entry_t) * MAX_NUM_IDT_ENTRIES) - 1;
     idtr.base = (uint64_t)&idt;
     
     asm volatile("lidt %0" :: "m"(idtr));
     
     serial_write("IDT loaded!\n");
+
+    init_pic();
+
+    set_idt_entry(32, irq_stub_0, 0x8E);
+    set_idt_entry(33, irq_stub_1, 0x8E);
+
+    pic_unmask_irq(0);
+    pic_unmask_irq(1); 
+    
+
+    enable_interrupts();
+
+    serial_write("Interrupts enabled!\n");
 }

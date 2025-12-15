@@ -114,6 +114,12 @@ static struct limine_file *find_module(const char *name) {
     return NULL;
 }
 
+struct limine_framebuffer *g_framebuffer = NULL;
+void *g_glyphs = NULL;
+struct psf1_header *g_hdr = NULL;
+int cursor_x = 10;
+int cursor_y = 50;
+bool shift_pressed = false;
 
 
 void kmain(void) {
@@ -133,45 +139,33 @@ void kmain(void) {
     }
 
     void *font_data;
-
-     struct limine_file *font = find_module("/boot/font.psf");
-
-
+    struct limine_file *font = find_module("/boot/font.psf");
     if (!font) {
-        hcf();;
+        hcf();
     }
-
+    
     font_data = font->address;
-
     struct psf1_header *hdr = font_data;
-
+    
     if (!verify_psf1(hdr)) {
         hcf();
     }
-
+    
     void *glyphs = (void *)((uintptr_t)font_data + sizeof(struct psf1_header));
-
     struct limine_framebuffer *framebuffer = framebuffer_request.response->framebuffers[0];
-
-
-     for (size_t i = 0; i < framebuffer->height * framebuffer->width; i++) {
+    
+    g_framebuffer = framebuffer;
+    g_glyphs = glyphs;
+    g_hdr = hdr;
+    
+    for (size_t i = 0; i < framebuffer->height * framebuffer->width; i++) {
         ((uint32_t*)framebuffer->address)[i] = 0x000000;
     }
-
-    DrawString(10, 10, "Hello from myOS!", 0xFFFFFF, framebuffer, glyphs, hdr);
+    
+    DrawString(10, 10, "Hello from ShibliOS!", 0xFFFFFF, framebuffer, glyphs, hdr);
     DrawString(10, 30, "PSF1 font loaded successfully!", 0x00FF00, framebuffer, glyphs, hdr);
     
     idt_init();
-
-    asm volatile(
-        "mov $5, %%rax;"      // Dividend = 5
-        "xor %%rdx, %%rdx;"   // Clear high bits
-        "xor %%rcx, %%rcx;"   // Divisor = 0
-        "div %%rcx"           // This WILL trigger #DE
-        :
-        :
-        : "rax", "rdx", "rcx"
-    );
-
+    
     hcf();
 }

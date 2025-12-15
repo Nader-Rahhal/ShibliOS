@@ -1,3 +1,5 @@
+#pragma once
+
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
@@ -52,3 +54,23 @@ static inline void serial_write_hex(uint64_t value) {
         serial_putchar(hex_chars[digit]);
     }
 }
+
+static inline void serial_write_dec(uint64_t value) {
+    if (value == 0) {
+        serial_putchar('0');
+        return;
+    }
+    
+    char buffer[20];
+    int pos = 0;
+    
+    while (value > 0) {
+        buffer[pos++] = '0' + (value % 10);
+        value /= 10;
+    }
+    
+    for (int i = pos - 1; i >= 0; i--) {
+        serial_putchar(buffer[i]);
+    }
+}
+

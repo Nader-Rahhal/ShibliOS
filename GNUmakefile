@@ -1,6 +1,6 @@
 .SUFFIXES:
 
-override OUTPUT := myos
+override OUTPUT := shiblios
 
 UNAME_S := $(shell uname -s)
 
