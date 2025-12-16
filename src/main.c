@@ -129,6 +129,8 @@ static struct limine_file *find_module(const char *name) {
 }
 
 void kmain(void) {
+
+
     serial_init();
     
     if (LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision) == false) {
@@ -172,120 +174,62 @@ void kmain(void) {
     terminal_enable_prompt(true);
     terminal_set_cursor(10, 75);
 
+    idt_init();
     setup_paging();
     pmm_init();
-    
-    terminal_write("\n=== Testing Page Allocation ===\n");
-    uint64_t test_page = allocate_page();
-    terminal_write("Allocated page at physical: 0x");
-    terminal_write_hex(test_page);
-    terminal_write("\n");
-    
-    pmm_stats();
-    
-    terminal_write("\n=== Testing Page Mapping ===\n");
-    uint64_t test_virt = 0x0000000100000000;
-    map_page(test_virt, test_page, PAGE_PRESENT | PAGE_WRITE);
-    terminal_write("Mapped virtual 0x");
-    terminal_write_hex(test_virt);
-    terminal_write(" to physical 0x");
-    terminal_write_hex(test_page);
-    terminal_write("\n");
-    
-    uint64_t phys_check = get_physical_address(test_virt);
-    terminal_write("Lookup returned: 0x");
-    terminal_write_hex(phys_check);
-    if (phys_check == test_page) {
-        terminal_set_color(0x00FF00);
-        terminal_write(" ✓ CORRECT\n");
-    } else {
-        terminal_set_color(0xFF0000);
-        terminal_write(" ✗ WRONG\n");
-    }
+
     terminal_set_color(0xFFFFFF);
     
-    terminal_write("\n=== Testing Read/Write Through Mapping ===\n");
+    // NEW: Page Fault Test
+    terminal_write("\n=== Testing Page Fault ===\n");
+    terminal_set_color(0xFFFF00);
+    terminal_write("WARNING: About to cause an intentional page fault!\n");
+    terminal_set_color(0xFFFFFF);
     
-    uint64_t *virt_ptr = (uint64_t *)test_virt;
-    uint64_t test_values[] = {
-        0xDEADBEEF12345678,
-        0xCAFEBABE87654321,
-        0x1234567890ABCDEF,
-        0xFEDCBA0987654321
-    };
-    
-    terminal_write("Writing test values...\n");
-    for (int i = 0; i < 4; i++) {
-        virt_ptr[i] = test_values[i];
-        terminal_write("  [");
-        terminal_write_dec(i);
-        terminal_write("] Wrote: 0x");
-        terminal_write_hex(test_values[i]);
-        terminal_write("\n");
-    }
-    
-    terminal_write("\nReading back values...\n");
-    bool all_match = true;
-    for (int i = 0; i < 4; i++) {
-        uint64_t read_value = virt_ptr[i];
-        terminal_write("  [");
-        terminal_write_dec(i);
-        terminal_write("] Read:  0x");
-        terminal_write_hex(read_value);
-        
-        if (read_value == test_values[i]) {
-            terminal_set_color(0x00FF00);
-            terminal_write(" ✓\n");
-            terminal_set_color(0xFFFFFF);
-        } else {
-            terminal_set_color(0xFF0000);
-            terminal_write(" ✗ EXPECTED 0x");
-            terminal_write_hex(test_values[i]);
-            terminal_write("\n");
-            terminal_set_color(0xFFFFFF);
-            all_match = false;
-        }
-    }
-    
-    terminal_write("\nVerifying through physical address (HHDM)...\n");
-    uint64_t hhdm = hhdm_request.response->offset;
-    uint64_t *phys_ptr = (uint64_t *)(hhdm + test_page);
-    
-    bool phys_match = true;
-    for (int i = 0; i < 4; i++) {
-        uint64_t phys_value = phys_ptr[i];
-        terminal_write("  [");
-        terminal_write_dec(i);
-        terminal_write("] Physical read: 0x");
-        terminal_write_hex(phys_value);
-        
-        if (phys_value == test_values[i]) {
-            terminal_set_color(0x00FF00);
-            terminal_write(" ✓\n");
-            terminal_set_color(0xFFFFFF);
-        } else {
-            terminal_set_color(0xFF0000);
-            terminal_write(" ✗\n");
-            terminal_set_color(0xFFFFFF);
-            phys_match = false;
-        }
-    }
-    
+    // Try to access an unmapped virtual address
+    uint64_t unmapped_virt = 0x0000000200000000;  // 8GB - not mapped
+    terminal_write("Attempting to read from unmapped address: 0x");
+    terminal_write_hex(unmapped_virt);
     terminal_write("\n");
-    if (all_match && phys_match) {
-        terminal_set_color(0x00FF00);
-        terminal_write("SUCCESS: Virtual mapping works correctly!\n");
-        terminal_write("Both virtual and physical access match!\n");
+    
+    // Check if it's mapped first
+    uint64_t check_mapping = get_physical_address(unmapped_virt);
+    terminal_write("Address translation returns: 0x");
+    terminal_write_hex(check_mapping);
+    if (check_mapping == 0) {
+        terminal_set_color(0xFF0000);
+        terminal_write(" (NOT MAPPED)\n");
         terminal_set_color(0xFFFFFF);
     } else {
-        terminal_set_color(0xFF0000);
-        terminal_write("FAILURE: Some tests failed!\n");
-        terminal_set_color(0xFFFFFF);
+        terminal_write(" (mapped)\n");
     }
     
+    terminal_write("\nAttempting to access unmapped memory in 3...\n");
+    for (int i = 0; i < 100000000; i++) { asm volatile("nop"); } // Delay
+    terminal_write("2...\n");
+    for (int i = 0; i < 100000000; i++) { asm volatile("nop"); }
+    terminal_write("1...\n");
+    for (int i = 0; i < 100000000; i++) { asm volatile("nop"); }
+    
+    terminal_set_color(0xFF0000);
+    terminal_write("\n>>> ACCESSING NOW <<<\n");
     terminal_set_color(0xFFFFFF);
+    
+    // This should cause a page fault!
+    volatile uint64_t *fault_ptr = (uint64_t *)unmapped_virt;
+    volatile uint64_t value = *fault_ptr;  // PAGE FAULT!
+    
+    // If we get here, something went wrong (or we handled the fault)
+    terminal_write("Read value: 0x");
+    terminal_write_hex(value);
+    terminal_write("\n");
+    
+    terminal_set_color(0x00FF00);
+    terminal_write("No crash? Unexpected!\n");
+    terminal_set_color(0xFFFFFF);
+    
     terminal_prompt();
-    idt_init();
     
     hcf();
 }
+    

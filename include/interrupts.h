@@ -6,6 +6,7 @@
 #include <draw.h>       
 #include <font.h>      
 #include <keyboard.h>
+#include <paging.h>
 
 
 
@@ -225,6 +226,39 @@ void exception_handler(struct interrupt_frame *frame) {
     serial_write("\n================================\n");
     serial_write("===   SYSTEM HALTED          ===\n");
     serial_write("================================\n");
+
+if (frame->int_no == 14) {
+    uint64_t cr2;
+    asm volatile("mov %%cr2, %0" : "=r"(cr2));
+    
+    serial_write("Page Fault at address: 0x");
+    serial_write_hex(cr2);
+    serial_write("\n");
+    
+    uint64_t virt_page = cr2 & ~0xFFF;
+    uint64_t phys_page = allocate_page();
+    
+    if (phys_page == 0) {
+        serial_write("ERROR: Cannot allocate page!\n");
+        serial_write("System halted.\n");
+        for(;;) asm("hlt");
+    }
+    
+    serial_write("Allocating new page at physical: 0x");
+    serial_write_hex(phys_page);
+    serial_write("\n");
+    
+    map_page(virt_page, phys_page, PAGE_PRESENT | PAGE_WRITE | PAGE_USER);
+    
+    serial_write("Mapped virtual 0x");
+    serial_write_hex(virt_page);
+    serial_write(" -> physical 0x");
+    serial_write_hex(phys_page);
+    serial_write("\n");
+    serial_write("Page fault handled! Resuming execution...\n\n");
+    
+    return;
+}
     
     while (1) {
         asm volatile("hlt");
