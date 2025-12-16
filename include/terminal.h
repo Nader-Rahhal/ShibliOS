@@ -10,8 +10,8 @@
 static struct limine_framebuffer *g_fb = NULL;
 static void *g_glyphs = NULL;
 static struct psf1_header *g_hdr = NULL;
-static int cursor_x = 10;
-static int cursor_y = 50;
+static uint64_t cursor_x = 10;
+static uint64_t cursor_y = 50;
 static uint32_t text_color = 0xFFFFFF;
 static size_t fb_height = 0;
 static size_t fb_width = 0;
@@ -100,6 +100,8 @@ void terminal_putchar(char c) {
     }
 }
 
+
+
 void terminal_draw_hline_single(uint32_t color, uint32_t x, uint32_t y, uint32_t length) {
     size_t start_offset = y * fb_width + x;
     for (size_t i = 0; i < length; i++) {
@@ -139,4 +141,36 @@ void terminal_write(const char *str) {
     while (*str) {
         terminal_putchar(*str++);
     }
+}
+
+static void terminal_write_hex(uint64_t value) {
+    char hex[17];  // 16 hex digits + null terminator
+    hex[16] = '\0';
+    
+    for (int i = 15; i >= 0; i--) {
+        uint8_t digit = value & 0xF;
+        hex[i] = digit < 10 ? '0' + digit : 'A' + (digit - 10);
+        value >>= 4;
+    }
+    
+    terminal_write(hex);
+}
+
+static void terminal_write_dec(uint64_t value) {
+    if (value == 0) {
+        terminal_write("0");
+        return;
+    }
+    
+    char dec[21];  // Max 20 digits for uint64_t + null
+    int i = 20;
+    dec[i] = '\0';
+    
+    while (value > 0 && i > 0) {
+        i--;
+        dec[i] = '0' + (value % 10);
+        value /= 10;
+    }
+    
+    terminal_write(&dec[i]);
 }
