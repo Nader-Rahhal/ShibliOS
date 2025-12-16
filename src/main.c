@@ -154,11 +154,16 @@ void kmain(void) {
     terminal_set_color(0x00FF00);
     terminal_write("PSF1 font loaded successfully!\n");
     terminal_set_color(0xFFFFFF);
-    terminal_write("Type something: ");
     
-    // terminal_draw_hline(0xFFFFFF, 0, 50, 300, 3);
-    // terminal_draw_vline(0xFFFFFF, 300, 0, 53, 3);
+    terminal_draw_hline(0xFFFFFF, 0, 50, 300, 3);
+    terminal_draw_vline(0xFFFFFF, 300, 0, 53, 3);
+
     
+    terminal_enable_prompt(true);
+    
+    terminal_set_cursor(10, 75);
+    terminal_prompt();
+
     idt_init();
     
     hcf();

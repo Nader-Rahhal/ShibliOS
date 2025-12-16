@@ -1,13 +1,11 @@
 #pragma once
-
 #include <stdint.h>
 #include <stddef.h>
-
+#include <stdbool.h>
 #include <limine.h>
 #include <font.h>
 #include <draw.h>
 #include <serial.h>
-
 
 static struct limine_framebuffer *g_fb = NULL;
 static void *g_glyphs = NULL;
@@ -15,11 +13,12 @@ static struct psf1_header *g_hdr = NULL;
 static int cursor_x = 10;
 static int cursor_y = 50;
 static uint32_t text_color = 0xFFFFFF;
-
 static size_t fb_height = 0;
 static size_t fb_width = 0;
+static bool auto_prompt = false;  // Controls whether prompts are automatic
 
-
+// Forward declaration
+void terminal_prompt(void);
 
 void terminal_init(struct limine_framebuffer *fb, void *glyphs, struct psf1_header *hdr) {
     g_fb = fb;
@@ -27,12 +26,9 @@ void terminal_init(struct limine_framebuffer *fb, void *glyphs, struct psf1_head
     g_hdr = hdr;
     cursor_x = 10;
     cursor_y = 50;
-
     fb_height = g_fb->height;
     fb_width = g_fb->width;
 }
-
-
 
 void terminal_clear(void) {
     for (size_t i = 0; i < fb_height * fb_width; i++) {
@@ -46,6 +42,15 @@ void terminal_set_color(uint32_t color) {
     text_color = color;
 }
 
+void terminal_set_cursor(int x, int y) {
+    cursor_x = x;
+    cursor_y = y;
+}
+
+// Enable or disable automatic prompts on newline
+void terminal_enable_prompt(bool enable) {
+    auto_prompt = enable;
+}
 
 void terminal_putchar(char c) {
     if (!g_fb || !g_glyphs || !g_hdr) {
@@ -66,10 +71,13 @@ void terminal_putchar(char c) {
         // Newline
         cursor_x = 10;
         cursor_y += g_hdr->charsize;
-        
         // Simple scroll: wrap to top if at bottom
         if (cursor_y >= g_fb->height - g_hdr->charsize) {
             cursor_y = 10;
+        }
+        // Only print prompt automatically if auto_prompt is enabled
+        if (auto_prompt) {
+            terminal_prompt();
         }
     } else if (c == '\t') {
         cursor_x = ((cursor_x / 32) + 1) * 32;
@@ -81,12 +89,10 @@ void terminal_putchar(char c) {
         // Regular character
         DrawChar(cursor_x, cursor_y, c, text_color, g_fb, g_glyphs, g_hdr);
         cursor_x += 8;
-        
         // Wrap to next line
         if (cursor_x >= g_fb->width - 8) {
             cursor_x = 10;
             cursor_y += g_hdr->charsize;
-            
             if (cursor_y >= g_fb->height - g_hdr->charsize) {
                 cursor_y = 10;
             }
@@ -122,6 +128,11 @@ void terminal_draw_vline(uint32_t color, uint32_t x, uint32_t y, uint32_t length
     for (uint32_t t = 0; t < thickness; t++) {
         terminal_draw_vline_single(color, x + t, y, length);
     }
+}
+
+void terminal_prompt(){
+    terminal_putchar('>');
+    terminal_putchar(' ');
 }
 
 void terminal_write(const char *str) {
