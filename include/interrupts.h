@@ -47,13 +47,6 @@ extern void isr_stub_31(void);
 extern void irq_stub_0(void);
 extern void irq_stub_1(void);
 
-extern struct limine_framebuffer *g_framebuffer;
-extern void *g_glyphs;
-extern struct psf1_header *g_hdr;
-extern int cursor_x;
-extern int cursor_y;
-extern bool shift_pressed;
-
 
 static void* isr_stubs[32] = {
     isr_stub_0,  isr_stub_1,  isr_stub_2,  isr_stub_3,
@@ -243,57 +236,9 @@ void irq_handler(struct interrupt_frame *frame) {
     
     if (irq_num == 0) {
         send_eoi(0);
-        
     } else if (irq_num == 1) {
         uint8_t scancode = inb(0x60);
-        
-        if (scancode == SCANCODE_LSHIFT_PRESS || scancode == SCANCODE_RSHIFT_PRESS) {
-            shift_pressed = true;
-        } else if (scancode == SCANCODE_LSHIFT_RELEASE || scancode == SCANCODE_RSHIFT_RELEASE) {
-            shift_pressed = false;
-        }
-        else if (!(scancode & 0x80)) {
-            char c = 0;
-            
-            if (scancode < sizeof(scancode_to_ascii_lower)) {
-                if (shift_pressed) {
-                    c = scancode_to_ascii_upper[scancode];
-                } else {
-                    c = scancode_to_ascii_lower[scancode];
-                }
-            }
-            
-            if (c == '\b') {
-                if (cursor_x > 10) {
-                    cursor_x -= 8;
-                    for (int y = 0; y < g_hdr->charsize; y++) {
-                        for (int x = 0; x < 8; x++) {
-                            DrawPixel(cursor_x + x, cursor_y + y, 0x000000, g_framebuffer);
-                        }
-                    }
-                }
-            } else if (c == '\n') {
-                cursor_x = 10;
-                cursor_y += g_hdr->charsize;
-                
-                if (cursor_y >= g_framebuffer->height - g_hdr->charsize) {
-                    cursor_y = 50;
-                }
-            } else if (c != 0) {
-                DrawChar(cursor_x, cursor_y, c, 0xFFFFFF, g_framebuffer, g_glyphs, g_hdr);
-                cursor_x += 8;
-                
-                if (cursor_x >= g_framebuffer->width - 8) {
-                    cursor_x = 10;
-                    cursor_y += g_hdr->charsize;
-                    
-                    if (cursor_y >= g_framebuffer->height - g_hdr->charsize) {
-                        cursor_y = 50;
-                    }
-                }
-            }
-        }
-        
+        keyboard_handle_irq(scancode);
         send_eoi(1);
     } else {
         send_eoi(irq_num);
@@ -331,6 +276,8 @@ static inline void idt_init(void) {
 
     pic_unmask_irq(0);
     pic_unmask_irq(1); 
+
+    keyboard_init();
     
 
     enable_interrupts();

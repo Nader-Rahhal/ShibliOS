@@ -5,6 +5,7 @@
 
 #include <draw.h>
 #include <interrupts.h>
+#include <terminal.h>
 
 __attribute__((used, section(".limine_requests")))
 static volatile uint64_t limine_base_revision[] = LIMINE_BASE_REVISION(4);
@@ -114,14 +115,6 @@ static struct limine_file *find_module(const char *name) {
     return NULL;
 }
 
-struct limine_framebuffer *g_framebuffer = NULL;
-void *g_glyphs = NULL;
-struct psf1_header *g_hdr = NULL;
-int cursor_x = 10;
-int cursor_y = 50;
-bool shift_pressed = false;
-
-
 void kmain(void) {
 
     serial_init();
@@ -154,16 +147,17 @@ void kmain(void) {
     void *glyphs = (void *)((uintptr_t)font_data + sizeof(struct psf1_header));
     struct limine_framebuffer *framebuffer = framebuffer_request.response->framebuffers[0];
     
-    g_framebuffer = framebuffer;
-    g_glyphs = glyphs;
-    g_hdr = hdr;
+    terminal_init(framebuffer, glyphs, hdr);
+    terminal_clear();
     
-    for (size_t i = 0; i < framebuffer->height * framebuffer->width; i++) {
-        ((uint32_t*)framebuffer->address)[i] = 0x000000;
-    }
+    terminal_write("Hello from ShibliOS!\n");
+    terminal_set_color(0x00FF00);
+    terminal_write("PSF1 font loaded successfully!\n");
+    terminal_set_color(0xFFFFFF);
+    terminal_write("Type something: ");
     
-    DrawString(10, 10, "Hello from ShibliOS!", 0xFFFFFF, framebuffer, glyphs, hdr);
-    DrawString(10, 30, "PSF1 font loaded successfully!", 0x00FF00, framebuffer, glyphs, hdr);
+    // terminal_draw_hline(0xFFFFFF, 0, 50, 300, 3);
+    // terminal_draw_vline(0xFFFFFF, 300, 0, 53, 3);
     
     idt_init();
     
