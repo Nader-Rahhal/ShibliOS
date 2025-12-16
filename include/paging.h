@@ -112,11 +112,6 @@ void setup_paging(void) {
     uint64_t pml4_phys = cr3 & ~0xFFF;
     
     pml4 = (struct pml4_entry *)(hhdm_offset + pml4_phys);
-    
-    terminal_write("Paging initialized (using Limine's tables)\n");
-    terminal_write("PML4 at physical: 0x");
-    terminal_write_hex(pml4_phys);
-    terminal_write("\n");
 }
 
 void pmm_init(void) {
@@ -128,9 +123,7 @@ void pmm_init(void) {
     k_memset(page_bitmap, 0xFF, sizeof(page_bitmap));
     
     struct limine_memmap_response *memmap = memmap_request.response;
-    
-    terminal_write("\n=== Physical Memory Manager ===\n");
-    terminal_write("Scanning memory map...\n");
+
     
     for (uint64_t i = 0; i < memmap->entry_count; i++) {
         struct limine_memmap_entry *entry = memmap->entries[i];
@@ -141,14 +134,7 @@ void pmm_init(void) {
         
         uint64_t base_page = entry->base / PAGE_SIZE;
         uint64_t num_pages = entry->length / PAGE_SIZE;
-        
-        terminal_write("  Usable: 0x");
-        terminal_write_hex(entry->base);
-        terminal_write(" - 0x");
-        terminal_write_hex(entry->base + entry->length);
-        terminal_write(" (");
-        terminal_write_dec(num_pages);
-        terminal_write(" pages)\n");
+    
         
         for (uint64_t p = 0; p < num_pages; p++) {
             uint64_t page_num = base_page + p;
@@ -163,12 +149,6 @@ void pmm_init(void) {
             total_pages++;
         }
     }
-    
-    terminal_write("PMM initialized: ");
-    terminal_write_dec(total_pages);
-    terminal_write(" pages (");
-    terminal_write_dec(total_pages * 4);
-    terminal_write(" KB) available\n");
 }
 
 uint64_t allocate_page(void) {
@@ -253,11 +233,6 @@ void map_page(uint64_t virtual_addr, uint64_t physical_addr, uint64_t flags) {
         pdpte->address = new_pd_phys >> 12;
     }
     
-    if (pdpte->page_size) {
-        terminal_write("ERROR: Cannot map into 1GB huge page\n");
-        return;
-    }
-    
     uint64_t pd_phys = pdpte->address << 12;
     struct pd_entry *pd = (struct pd_entry *)phys_to_virt(pd_phys);
     struct pd_entry *pde = &pd[pd_i];
@@ -274,11 +249,6 @@ void map_page(uint64_t virtual_addr, uint64_t physical_addr, uint64_t flags) {
         pde->user = (flags & PAGE_USER) ? 1 : 0;
         pde->page_size = 0;
         pde->address = new_pt_phys >> 12;
-    }
-    
-    if (pde->page_size) {
-        terminal_write("ERROR: Cannot map into 2MB huge page\n");
-        return;
     }
     
     uint64_t pt_phys = pde->address << 12;

@@ -6,6 +6,7 @@
 #include <interrupts.h>
 #include <terminal.h>
 #include <paging.h>
+#include <rtc.h>
 
 __attribute__((used, section(".limine_requests")))
 volatile uint64_t limine_base_revision[] = LIMINE_BASE_REVISION(4);
@@ -132,6 +133,7 @@ void kmain(void) {
 
 
     serial_init();
+    rtc_init();
     
     if (LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision) == false) {
         hcf();
@@ -166,7 +168,21 @@ void kmain(void) {
     
     terminal_write("Hello from ShibliOS!\n");
     terminal_set_color(0x00FF00);
-    terminal_write("PSF1 font loaded successfully!\n");
+
+    uint8_t hour;
+    uint8_t minute;
+    uint8_t second;
+
+    rtc_read_time(&hour, &minute, &second);
+    terminal_write("Current Time: ");
+    terminal_write_dec(hour);
+    terminal_write(":");
+    terminal_write_dec(minute);
+    terminal_write(":");
+    terminal_write_dec(second);
+    terminal_write("\n");
+
+
     terminal_set_color(0xFFFFFF);
     
     terminal_draw_hline(0xFFFFFF, 0, 50, 300, 3);
@@ -175,24 +191,22 @@ void kmain(void) {
     terminal_set_cursor(10, 75);
 
     idt_init();
+
     setup_paging();
     pmm_init();
 
     terminal_set_color(0xFFFFFF);
     
-    // NEW: Page Fault Test
     terminal_write("\n=== Testing Page Fault ===\n");
     terminal_set_color(0xFFFF00);
     terminal_write("WARNING: About to cause an intentional page fault!\n");
     terminal_set_color(0xFFFFFF);
     
-    // Try to access an unmapped virtual address
-    uint64_t unmapped_virt = 0x0000000200000000;  // 8GB - not mapped
+    uint64_t unmapped_virt = 0x0000000200000000;
     terminal_write("Attempting to read from unmapped address: 0x");
     terminal_write_hex(unmapped_virt);
     terminal_write("\n");
     
-    // Check if it's mapped first
     uint64_t check_mapping = get_physical_address(unmapped_virt);
     terminal_write("Address translation returns: 0x");
     terminal_write_hex(check_mapping);
@@ -205,7 +219,7 @@ void kmain(void) {
     }
     
     terminal_write("\nAttempting to access unmapped memory in 3...\n");
-    for (int i = 0; i < 100000000; i++) { asm volatile("nop"); } // Delay
+    for (int i = 0; i < 100000000; i++) { asm volatile("nop"); }
     terminal_write("2...\n");
     for (int i = 0; i < 100000000; i++) { asm volatile("nop"); }
     terminal_write("1...\n");
@@ -215,11 +229,9 @@ void kmain(void) {
     terminal_write("\n>>> ACCESSING NOW <<<\n");
     terminal_set_color(0xFFFFFF);
     
-    // This should cause a page fault!
     volatile uint64_t *fault_ptr = (uint64_t *)unmapped_virt;
-    volatile uint64_t value = *fault_ptr;  // PAGE FAULT!
+    volatile uint64_t value = *fault_ptr;
     
-    // If we get here, something went wrong (or we handled the fault)
     terminal_write("Read value: 0x");
     terminal_write_hex(value);
     terminal_write("\n");

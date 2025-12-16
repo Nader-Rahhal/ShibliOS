@@ -1,3 +1,4 @@
+#pragma once
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -7,6 +8,7 @@
 #include <font.h>      
 #include <keyboard.h>
 #include <paging.h>
+#include <rtc.h>
 
 
 
@@ -47,6 +49,7 @@ extern void isr_stub_31(void);
 
 extern void irq_stub_0(void);
 extern void irq_stub_1(void);
+extern void irq_stub_8(void);
 
 
 static void* isr_stubs[32] = {
@@ -108,8 +111,7 @@ static inline void set_idt_entry(uint8_t vector, void* isr, uint8_t flags) {
 
 // this will handle 
 void exception_handler(struct interrupt_frame *frame) {
-    // Disable interrupts immediately
-    asm volatile("cli");
+    disable_interrupts();
     
     serial_write("\n\n");
     serial_write("===   EXCEPTION TRIGGERED!   ===\n");
@@ -227,38 +229,23 @@ void exception_handler(struct interrupt_frame *frame) {
     serial_write("===   SYSTEM HALTED          ===\n");
     serial_write("================================\n");
 
-if (frame->int_no == 14) {
-    uint64_t cr2;
-    asm volatile("mov %%cr2, %0" : "=r"(cr2));
+    if (frame->int_no == 14) {
+        uint64_t cr2;
+        asm volatile("mov %%cr2, %0" : "=r"(cr2));
     
-    serial_write("Page Fault at address: 0x");
-    serial_write_hex(cr2);
-    serial_write("\n");
+        uint64_t virt_page = cr2 & ~0xFFF;
+        uint64_t phys_page = allocate_page();
     
-    uint64_t virt_page = cr2 & ~0xFFF;
-    uint64_t phys_page = allocate_page();
+        if (phys_page == 0) {
+            serial_write("ERROR: Cannot allocate page!\n");
+            serial_write("System halted.\n");
+            for(;;) asm("hlt");
+        }
     
-    if (phys_page == 0) {
-        serial_write("ERROR: Cannot allocate page!\n");
-        serial_write("System halted.\n");
-        for(;;) asm("hlt");
+        map_page(virt_page, phys_page, PAGE_PRESENT | PAGE_WRITE | PAGE_USER);
+        enable_interrupts();
+        return;
     }
-    
-    serial_write("Allocating new page at physical: 0x");
-    serial_write_hex(phys_page);
-    serial_write("\n");
-    
-    map_page(virt_page, phys_page, PAGE_PRESENT | PAGE_WRITE | PAGE_USER);
-    
-    serial_write("Mapped virtual 0x");
-    serial_write_hex(virt_page);
-    serial_write(" -> physical 0x");
-    serial_write_hex(phys_page);
-    serial_write("\n");
-    serial_write("Page fault handled! Resuming execution...\n\n");
-    
-    return;
-}
     
     while (1) {
         asm volatile("hlt");
@@ -266,17 +253,20 @@ if (frame->int_no == 14) {
 }
 
 void irq_handler(struct interrupt_frame *frame) {
+    // right now we only handle keyboard IRQ and timer IRQ
     uint64_t irq_num = frame->int_no - 32;
     
     if (irq_num == 0) {
-        send_eoi(0);
+        // timer IRQ
+        // we can add timer handling code here later
     } else if (irq_num == 1) {
         uint8_t scancode = inb(0x60);
         keyboard_handle_irq(scancode);
-        send_eoi(1);
-    } else {
-        send_eoi(irq_num);
     }
+    else if (irq_num == 8) {
+        rtc_handler();
+    }
+    send_eoi(irq_num);
 }
 
 static inline void idt_init(void) {
@@ -307,6 +297,7 @@ static inline void idt_init(void) {
 
     set_idt_entry(32, irq_stub_0, 0x8E);
     set_idt_entry(33, irq_stub_1, 0x8E);
+    set_idt_entry(40, irq_stub_8, 0x8E);
 
     pic_unmask_irq(0);
     pic_unmask_irq(1); 
