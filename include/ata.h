@@ -1,0 +1,5 @@
+
+
+void ata_init(){
+
+}

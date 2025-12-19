@@ -27,7 +27,3 @@ struct ext2_superblock {
     uint16_t uid_reserved_blocks;
     uint16_t gid_reserved_blocks;
 };
-
-void parse_superblock(){
-
-}

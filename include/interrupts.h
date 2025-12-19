@@ -51,6 +51,9 @@ extern void irq_stub_0(void);
 extern void irq_stub_1(void);
 extern void irq_stub_8(void);
 extern void irq_stub_12(void);
+extern void irq_stub_14(void);
+extern void irq_stub_15(void);
+
 
 
 static void* isr_stubs[32] = {
@@ -230,9 +233,15 @@ void exception_handler(struct interrupt_frame *frame) {
     serial_write("===   SYSTEM HALTED          ===\n");
     serial_write("================================\n");
 
+    
+
     if (frame->int_no == 14) {
         uint64_t cr2;
         asm volatile("mov %%cr2, %0" : "=r"(cr2));
+
+        serial_write("Faulting address (CR2): 0x");
+        serial_write_hex(cr2);
+        serial_write("\n");
     
         uint64_t virt_page = cr2 & ~0xFFF;
         uint64_t phys_page = allocate_page();
@@ -242,9 +251,10 @@ void exception_handler(struct interrupt_frame *frame) {
             serial_write("System halted.\n");
             for(;;) asm("hlt");
         }
+
+        
     
         map_page(virt_page, phys_page, PAGE_PRESENT | PAGE_WRITE | PAGE_USER);
-        enable_interrupts();
         return;
     }
     

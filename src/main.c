@@ -191,13 +191,14 @@ void kmain(void) {
     terminal_set_cursor(10, 75);
 
     idt_init();
-
     setup_paging();
     pmm_init();
 
     terminal_set_color(0xFFFFFF);
 
     terminal_prompt();
+
+    hcf();
     
 
 
