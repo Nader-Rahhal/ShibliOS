@@ -101,7 +101,7 @@ obj/%.asm.o: %.asm GNUmakefile
 
 .PHONY: clean
 clean:
-	rm -rf bin obj limine iso_root image.iso disk.img
+	rm -rf bin obj iso_root image.iso
 
 # Build ISO with Limine
 .PHONY: build
@@ -138,9 +138,7 @@ format:
 .PHONY: run
 run:
 	qemu-system-x86_64 \
-    -M q35 \
     -m 512M \
     -cdrom image.iso \
-    -boot d \
     -drive file=disk.img,format=raw,if=ide \
     -serial stdio

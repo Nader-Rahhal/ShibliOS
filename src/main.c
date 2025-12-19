@@ -7,6 +7,7 @@
 #include <terminal.h>
 #include <paging.h>
 #include <rtc.h>
+#include <ata.h>
 
 __attribute__((used, section(".limine_requests")))
 volatile uint64_t limine_base_revision[] = LIMINE_BASE_REVISION(4);
@@ -193,6 +194,9 @@ void kmain(void) {
     idt_init();
     setup_paging();
     pmm_init();
+    
+    ata_identify();
+    test_ata();
 
     terminal_set_color(0xFFFFFF);
 

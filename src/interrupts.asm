@@ -154,7 +154,7 @@ irq_stub_macro 0        ; Timer (vector 32)
 irq_stub_macro 1        ; Keyboard (vector 33)
 irq_stub_macro 8        ; RTC (vector 40)
 irq_stub_macro 12       ; PS/2 Mouse (vector 44)
-irq stub_macro 14       ; Primary ATA (vector 46)
+irq_stub_macro 14       ; Primary ATA (vector 46)
 irq_stub_macro 15       ; Secondary ATA (vector 47)
 
 

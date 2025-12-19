@@ -312,6 +312,8 @@ static inline void idt_init(void) {
     set_idt_entry(32, irq_stub_0, 0x8E);
     set_idt_entry(33, irq_stub_1, 0x8E);
     set_idt_entry(40, irq_stub_8, 0x8E);
+    set_idt_entry(46, irq_stub_14, 0x8E);
+    set_idt_entry(47, irq_stub_15, 0x8E);
 
     pic_unmask_irq(0);
     pic_unmask_irq(1); 
