@@ -196,52 +196,10 @@ void kmain(void) {
     pmm_init();
 
     terminal_set_color(0xFFFFFF);
-    
-    terminal_write("\n=== Testing Page Fault ===\n");
-    terminal_set_color(0xFFFF00);
-    terminal_write("WARNING: About to cause an intentional page fault!\n");
-    terminal_set_color(0xFFFFFF);
-    
-    uint64_t unmapped_virt = 0x0000000200000000;
-    terminal_write("Attempting to read from unmapped address: 0x");
-    terminal_write_hex(unmapped_virt);
-    terminal_write("\n");
-    
-    uint64_t check_mapping = get_physical_address(unmapped_virt);
-    terminal_write("Address translation returns: 0x");
-    terminal_write_hex(check_mapping);
-    if (check_mapping == 0) {
-        terminal_set_color(0xFF0000);
-        terminal_write(" (NOT MAPPED)\n");
-        terminal_set_color(0xFFFFFF);
-    } else {
-        terminal_write(" (mapped)\n");
-    }
-    
-    terminal_write("\nAttempting to access unmapped memory in 3...\n");
-    for (int i = 0; i < 100000000; i++) { asm volatile("nop"); }
-    terminal_write("2...\n");
-    for (int i = 0; i < 100000000; i++) { asm volatile("nop"); }
-    terminal_write("1...\n");
-    for (int i = 0; i < 100000000; i++) { asm volatile("nop"); }
-    
-    terminal_set_color(0xFF0000);
-    terminal_write("\n>>> ACCESSING NOW <<<\n");
-    terminal_set_color(0xFFFFFF);
-    
-    volatile uint64_t *fault_ptr = (uint64_t *)unmapped_virt;
-    volatile uint64_t value = *fault_ptr;
-    
-    terminal_write("Read value: 0x");
-    terminal_write_hex(value);
-    terminal_write("\n");
-    
-    terminal_set_color(0x00FF00);
-    terminal_write("No crash? Unexpected!\n");
-    terminal_set_color(0xFFFFFF);
-    
+
     terminal_prompt();
     
-    hcf();
+
+
 }
     

@@ -50,6 +50,7 @@ extern void isr_stub_31(void);
 extern void irq_stub_0(void);
 extern void irq_stub_1(void);
 extern void irq_stub_8(void);
+extern void irq_stub_12(void);
 
 
 static void* isr_stubs[32] = {
@@ -265,6 +266,9 @@ void irq_handler(struct interrupt_frame *frame) {
     }
     else if (irq_num == 8) {
         rtc_handler();
+    }
+    else if (irq_num == 12) {
+        // mouse IRQ - not implemented yet
     }
     send_eoi(irq_num);
 }

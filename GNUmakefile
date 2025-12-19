@@ -101,7 +101,7 @@ obj/%.asm.o: %.asm GNUmakefile
 
 .PHONY: clean
 clean:
-	rm -rf bin obj limine iso_root image.iso
+	rm -rf bin obj limine iso_root image.iso disk.img
 
 # Build ISO with Limine
 .PHONY: build
@@ -130,7 +130,17 @@ build:
 
 	./limine/limine bios-install image.iso
 
+.PHONY: format
+format:
+	qemu-img create -f raw disk.img 100M
+	/opt/homebrew/opt/e2fsprogs/sbin/mkfs.ext2 disk.img
 # Run in QEMU
 .PHONY: run
 run:
-	qemu-system-x86_64 -cdrom image.iso -m 512M -serial stdio
+	qemu-system-x86_64 \
+    -M q35 \
+    -m 512M \
+    -cdrom image.iso \
+    -boot d \
+    -drive file=disk.img,format=raw,if=ide \
+    -serial stdio

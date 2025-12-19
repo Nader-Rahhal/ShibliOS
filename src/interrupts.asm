@@ -137,6 +137,7 @@ isr_common:
 global irq_stub_0
 global irq_stub_1
 global irq_stub_8
+global irq_stub_12
 
 extern irq_handler
 
@@ -150,6 +151,7 @@ irq_stub_%+%1:
 irq_stub_macro 0        ; Timer (vector 32)
 irq_stub_macro 1        ; Keyboard (vector 33)
 irq_stub_macro 8        ; RTC (vector 40)
+irq_stub_macro 12       ; PS/2 Mouse (vector 44)
 
 
 irq_common:
