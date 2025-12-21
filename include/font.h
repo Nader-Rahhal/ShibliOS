@@ -7,7 +7,4 @@ struct psf1_header {
     unsigned char charsize;
 };
 
-bool verify_psf1(struct psf1_header *hdr){
-    return hdr->magic[0] == 0x36 && hdr->magic[1] == 0x04;
-}
-
+bool verify_psf1(struct psf1_header *hdr);

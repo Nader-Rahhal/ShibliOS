@@ -8,6 +8,8 @@
 #include <paging.h>
 #include <rtc.h>
 #include <ata.h>
+#include <ext2.h>
+#include "serial.h"
 
 __attribute__((used, section(".limine_requests")))
 volatile uint64_t limine_base_revision[] = LIMINE_BASE_REVISION(4);
@@ -196,11 +198,11 @@ void kmain(void) {
     pmm_init();
     
     ata_identify();
-    test_ata();
+    parse_superblock();
+    parse_blockgroup_descriptors();
+    read_directory_entries(2);
 
     terminal_set_color(0xFFFFFF);
-
-    terminal_prompt();
 
     hcf();
     
