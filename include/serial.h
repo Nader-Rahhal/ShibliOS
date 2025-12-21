@@ -6,14 +6,6 @@
 
 #define SERIAL_PORT 0x3F8
 
-void outb(uint16_t port, uint8_t value);
-
-uint8_t inb(uint16_t port);
-
-uint16_t inw(uint16_t port);
-
-void outw(uint16_t port, uint16_t value);
-
 void serial_init(void);
 
 bool serial_transmit_empty(void);

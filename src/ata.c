@@ -4,6 +4,7 @@
 #include "serial.h"
 #include "interrupts.h"
 #include "terminal.h"
+#include "io.h"
 
 
 void ata_wait_busy(void){

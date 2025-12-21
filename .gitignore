@@ -3,6 +3,7 @@ bin/
 obj/
 iso_root/
 image.iso
+disk.img
 
 # Limine repo if you don't track it
 limine/

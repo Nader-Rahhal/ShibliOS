@@ -5,26 +5,7 @@
 #include <stdbool.h>
 
 #include "serial.h"
-
-void outb(uint16_t port, uint8_t value) {
-    asm volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
-}
-
-uint8_t inb(uint16_t port) {
-    uint8_t ret;
-    asm volatile ("inb %1, %0" : "=a"(ret) : "Nd"(port));
-    return ret;
-}
-
-uint16_t inw(uint16_t port) {
-    uint16_t result;
-    asm volatile("inw %1, %0" : "=a"(result) : "Nd"(port));
-    return result;
-}
-
-void outw(uint16_t port, uint16_t value) {
-    asm volatile("outw %0, %1" : : "a"(value), "Nd"(port));
-}
+#include "io.h"
 
 void serial_init(void) {
     outb(SERIAL_PORT + 1, 0x00);
@@ -35,7 +16,6 @@ void serial_init(void) {
     outb(SERIAL_PORT + 2, 0xC7);
     outb(SERIAL_PORT + 4, 0x0B);
 }
-
 
 bool serial_transmit_empty(void) {
     return inb(SERIAL_PORT + 5) & 0x20;

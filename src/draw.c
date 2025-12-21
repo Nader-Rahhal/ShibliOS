@@ -1,9 +1,9 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <limine.h>
-#include <stdbool.h>
-#include <font.h>
 
+#include "limine.h"
+#include "stdbool.h"
+#include "font.h"
 #include "draw.h"
 
 void DrawPixel(int x, int y, uint32_t color, struct limine_framebuffer *framebuffer) {

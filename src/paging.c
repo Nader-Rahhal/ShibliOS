@@ -1,8 +1,8 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <limine.h>
-#include <terminal.h>
 
+#include "limine.h"
+#include "terminal.h"
 #include "paging.h"
 
 void *k_memset(void *s, int c, size_t n) {

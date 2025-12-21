@@ -1,7 +1,7 @@
 #include <stdint.h>
 
 #include "interrupts.h"
-#include "serial.h"
+#include "io.h"
 #include "rtc.h"
 
 void rtc_init(void) {
