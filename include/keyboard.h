@@ -1,9 +1,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include <serial.h>
-#include <terminal.h>
-
 #define SCANCODE_LSHIFT_PRESS   0x2A
 #define SCANCODE_LSHIFT_RELEASE 0xAA
 #define SCANCODE_RSHIFT_PRESS   0x36

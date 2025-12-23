@@ -8,6 +8,7 @@
 #include "serial.h"
 #include "str.h"
 #include "terminal.h"
+#include "ext2.h"
 
 
 void terminal_init(struct limine_framebuffer *fb, void *glyphs, struct psf1_header *hdr) {
@@ -65,15 +66,22 @@ void terminal_putchar(char c) {
         if (cursor_y >= g_fb->height - g_hdr->charsize) {
             cursor_y = 10;
         }
+
         cmd[cmd_len] = '\0';
         accept_input = false; 
         if (strcmp(cmd, "clear")) {
             terminal_clear();
         }
+        else if (strcmp(cmd, "dir")) {
+            terminal_clear();
+            read_directory_entries(2);
+        }
         else if (strcmp(cmd, "touch")) {
             serial_write("touch\n");
         }
         cmd_len = 0;
+
+
         if (auto_prompt) {
             terminal_prompt();
         }
