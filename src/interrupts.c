@@ -10,6 +10,7 @@
 #include "rtc.h"
 #include "interrupts.h"
 #include "io.h"
+#include "pit.h"
 
 
 void enable_interrupts(void) {
@@ -238,6 +239,8 @@ void idt_init(void) {
     pic_unmask_irq(1); 
 
     keyboard_init();
+    init_pit();
+
     
 
     enable_interrupts();

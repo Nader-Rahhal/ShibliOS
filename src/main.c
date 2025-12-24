@@ -160,13 +160,6 @@ void kmain(void) {
     parse_superblock();
     parse_blockgroup_descriptors();
 
-    create_file(2, "hello.txt");
-    uint32_t file_inode = 12;  // You'd get this from directory listing
-    write_file(file_inode, "Hello, World! This is a test file.");
-    print_file(file_inode);
-
-    read_directory_entries(2);
-
     terminal_set_color(0xFFFFFF);
 
     terminal_prompt();
