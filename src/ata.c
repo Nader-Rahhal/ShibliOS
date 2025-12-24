@@ -86,7 +86,6 @@ void ata_read_sector(uint32_t lba, uint8_t *buffer){
 
     outb(0x1F7, 0x20);
 
-
     ata_wait_drq();
 
     uint16_t *buf = (uint16_t *)buffer;
@@ -117,4 +116,23 @@ void ata_write_sector(uint32_t lba, uint8_t *buffer) {
 
     outb(0x1F7, 0xE7);
     ata_wait_busy();
+}
+
+void read(uint32_t start_sector, uint32_t size, uint8_t *buffer){
+    uint32_t total_sectors = size /  512;
+    uint32_t offset = 0;
+
+    for (uint32_t sector = start_sector; sector < total_sectors + start_sector; sector++){
+        ata_read_sector(sector, buffer + offset);
+        offset += 512;
+    }
+}
+
+void write(uint32_t start_sector, uint32_t size, uint8_t *buffer){
+    uint32_t total_sectors = size /  512;
+    uint32_t offset = 0;
+    for (uint32_t sector = start_sector; sector < total_sectors + start_sector; sector++){
+        ata_write_sector(sector, buffer + offset);
+        offset += 512;
+    }
 }

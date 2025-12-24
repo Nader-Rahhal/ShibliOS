@@ -14,8 +14,6 @@
 extern volatile struct limine_hhdm_request hhdm_request;
 extern volatile struct limine_memmap_request memmap_request;
 
-void *k_memset(void *s, int c, size_t n);
-
 struct pml4_entry {
     uint64_t present:1;
     uint64_t rw:1;

@@ -3,16 +3,7 @@
 #include "ata.h"
 #include "terminal.h"
 #include "ext2.h"
-
-
-void *memcpy_2(void *restrict dest, const void *restrict src, size_t n) {
-    uint8_t *restrict pdest = (uint8_t *restrict)dest;
-    const uint8_t *restrict psrc = (const uint8_t *restrict)src;
-    for (size_t i = 0; i < n; i++) {
-        pdest[i] = psrc[i];
-    }
-    return dest;
-}
+#include "memory.h"
 
 void read_inode(uint32_t inode_number) {
 
@@ -35,10 +26,9 @@ void read_inode(uint32_t inode_number) {
     uint32_t sector = target_block * sectors_per_block;
     
     uint8_t buffer[1024];
-    ata_read_sector(sector, buffer);
-    ata_read_sector(sector + 1, buffer + 512);
+    read(sector, 1024, buffer);
     
-    memcpy_2(&inode, buffer + inode_offset_in_block, sizeof(struct ext2_inode));
+    memcpy(&inode, buffer + inode_offset_in_block, sizeof(struct ext2_inode));
 
     /*
     
@@ -155,7 +145,7 @@ void create_file(uint32_t parent_inode, const char *filename) {
     new_entry.name_length = name_len;
     new_entry.type = 1;
 
-    memcpy_2(new_entry.name, filename, name_len);
+    memcpy(new_entry.name, filename, name_len);
     
     new_entry.size = 0;
     
@@ -222,15 +212,14 @@ void write_file(uint32_t inode_number, const char* data) {
             bytes_to_write = block_size_bytes;
         }
         
-        memcpy_2(block_buffer, data + data_offset, bytes_to_write);
+        memcpy(block_buffer, data + data_offset, bytes_to_write);
         
         for (uint32_t i = bytes_to_write; i < block_size_bytes; i++) {
             block_buffer[i] = 0;
         }
         
         uint32_t sector = block_num * sectors_per_block;
-        ata_write_sector(sector, block_buffer);
-        ata_write_sector(sector + 1, block_buffer + 512);
+        write(sector, 1024, block_buffer);
         
         data_offset += bytes_to_write;
     }
@@ -284,8 +273,7 @@ void read_file(uint32_t inode_number, char* buffer, uint32_t max_size) {
         }
         
         uint32_t sector = block_num * sectors_per_block;
-        ata_read_sector(sector, block_buffer);
-        ata_read_sector(sector + 1, block_buffer + 512);
+        read(sector, 1024, block_buffer);
         
         uint32_t bytes_in_block = bytes_to_read - bytes_read;
         if (bytes_in_block > block_size_bytes) {
@@ -293,7 +281,7 @@ void read_file(uint32_t inode_number, char* buffer, uint32_t max_size) {
         }
         
         if (buffer != 0) {
-            memcpy_2(buffer + bytes_read, block_buffer, bytes_in_block);
+            memcpy(buffer + bytes_read, block_buffer, bytes_in_block);
         } else {
             for (uint32_t i = 0; i < bytes_in_block; i++) {
                 terminal_putchar(block_buffer[i]);
@@ -352,8 +340,8 @@ void print_file(uint32_t inode_number) {
         }
         
         uint32_t sector = block_num * sectors_per_block;
-        ata_read_sector(sector, block_buffer);
-        ata_read_sector(sector + 1, block_buffer + 512);
+        read(sector, 1024, block_buffer);
+
         
         uint32_t bytes_to_print = bytes_remaining;
         if (bytes_to_print > block_size_bytes) {
@@ -406,12 +394,11 @@ void add_directory_entry(uint32_t parent_inode, struct ext2_directory_entry *ent
             }
             
             // Add the entry at the beginning
-            memcpy_2(block_buffer, entry, 8 + entry->name_length);
+            memcpy(block_buffer, entry, 8 + entry->name_length);
             
             // Write the block back
             uint32_t sector = block_num * sectors_per_block;
-            ata_write_sector(sector, block_buffer);
-            ata_write_sector(sector + 1, block_buffer + 512);
+            write(sector, 1024, block_buffer);
             
             // Write back the updated inode
             edit_inode_table(parent_inode, &inode);
@@ -420,8 +407,7 @@ void add_directory_entry(uint32_t parent_inode, struct ext2_directory_entry *ent
         
         // Read existing block
         uint32_t sector = block_num * sectors_per_block;
-        ata_read_sector(sector, block_buffer);
-        ata_read_sector(sector + 1, block_buffer + 512);
+        read(sector, 1024, block_buffer);
         
         // Search for free space in this block
         uint32_t offset = 0;
@@ -439,11 +425,10 @@ void add_directory_entry(uint32_t parent_inode, struct ext2_directory_entry *ent
                 
                 // Check if we have enough space
                 if (offset + entry_size <= block_size_bytes) {
-                    memcpy_2(block_buffer + offset, entry, 8 + entry->name_length);
+                    memcpy(block_buffer + offset, entry, 8 + entry->name_length);
                     
                     // Write the block back
-                    ata_write_sector(sector, block_buffer);
-                    ata_write_sector(sector + 1, block_buffer + 512);
+                    write(sector, 1024, block_buffer);
                     
                     // Update directory size if needed
                     uint32_t new_size = offset + entry_size;
@@ -477,11 +462,11 @@ void add_directory_entry(uint32_t parent_inode, struct ext2_directory_entry *ent
                     
                     // Add new entry right after
                     entry->size = available;
-                    memcpy_2(block_buffer + offset + actual_size, entry, 8 + entry->name_length);
+                    memcpy(block_buffer + offset + actual_size, entry, 8 + entry->name_length);
                     
                     // Write the block back
-                    ata_write_sector(sector, block_buffer);
-                    ata_write_sector(sector + 1, block_buffer + 512);
+
+                    write(sector, 1024, block_buffer);
                     
                     return;
                 }
@@ -518,13 +503,11 @@ void edit_inode_table(uint32_t inode_number, struct ext2_inode *new_inode) {
     uint32_t sector = target_block * sectors_per_block;
     
     uint8_t buffer[1024];
-    ata_read_sector(sector, buffer);
-    ata_read_sector(sector + 1, buffer + 512);
+    read(sector, 1024, buffer);
     
-    memcpy_2(buffer + inode_offset_in_block, new_inode, sizeof(struct ext2_inode));
-    
-    ata_write_sector(sector, buffer);
-    ata_write_sector(sector + 1, buffer + 512);
+    memcpy(buffer + inode_offset_in_block, new_inode, sizeof(struct ext2_inode));
+
+    write(sector, 1024, buffer);
 }
 
 void update_blockgroup_descriptor(uint32_t group_number, uint32_t delta_inodes, uint32_t delta_blocks){
@@ -533,11 +516,9 @@ void update_blockgroup_descriptor(uint32_t group_number, uint32_t delta_inodes, 
 
     uint8_t buffer[1024];
 
-    memcpy_2(buffer, bgdt, sizeof(bgdt));
+    memcpy(buffer, bgdt, sizeof(bgdt));
 
-    ata_write_sector(4, buffer);
-    ata_write_sector(5, buffer + 512);
-
+    write(4, 1024, buffer);
 }
 
 void update_block_bitmap(uint32_t group_number, uint32_t block_number, uint8_t new_value){
@@ -548,8 +529,7 @@ void update_block_bitmap(uint32_t group_number, uint32_t block_number, uint8_t n
 
     uint8_t block_bitmap[1024];
     uint32_t sector = block_bitmap_block_address * sectors_per_block;
-    ata_read_sector(sector, block_bitmap);
-    ata_read_sector(sector + 1, block_bitmap + 512);
+    read(sector, 1024, block_bitmap);
 
     uint32_t block_index = block_number % sb.blocks_per_group;  
     uint32_t byte_idx = block_index / 8;
@@ -563,8 +543,7 @@ void update_block_bitmap(uint32_t group_number, uint32_t block_number, uint8_t n
 
     block_bitmap[byte_idx] = byte;
 
-    ata_write_sector(sector, block_bitmap);
-    ata_write_sector(sector + 1, block_bitmap + 512);
+    write(sector, 1024, block_bitmap);
 
     if (new_value) {
         update_blockgroup_descriptor(group_number, 0, -1);
@@ -583,8 +562,7 @@ void update_inode_bitmap(uint32_t group_number, uint32_t inode_number, uint8_t n
     
     uint8_t inode_bitmap[1024];
     uint32_t sector = inode_bitmap_block_address * sectors_per_block;
-    ata_read_sector(sector, inode_bitmap);
-    ata_read_sector(sector + 1, inode_bitmap + 512);
+    read(sector, 1024, inode_bitmap);
     
     uint32_t inode_index = (inode_number - 1) % sb.inodes_per_group;
     
@@ -600,9 +578,8 @@ void update_inode_bitmap(uint32_t group_number, uint32_t inode_number, uint8_t n
     }
     
     inode_bitmap[byte_idx] = byte;
-    
-    ata_write_sector(sector, inode_bitmap);
-    ata_write_sector(sector + 1, inode_bitmap + 512);
+
+    write(sector, 1024, inode_bitmap);
     
     if (new_value) {
         update_blockgroup_descriptor(group_number, -1, 0);
@@ -681,8 +658,7 @@ uint32_t find_free_block(uint32_t group_number){
 
     uint8_t block_bitmap[1024];
     uint32_t sector = block_bitmap_block_address * sectors_per_block;
-    ata_read_sector(sector, block_bitmap);
-    ata_read_sector(sector + 1, block_bitmap + 512);
+    read(sector, 1024, block_bitmap);
 
     for (uint32_t i = 0; i < sb.blocks_per_group; i++) {
         uint32_t byte_idx = i / 8;
@@ -703,8 +679,7 @@ uint32_t find_free_inode(uint32_t group_number){
 
     uint8_t inode_bitmap[1024];
     uint32_t sector = inode_bitmap_block_address * sectors_per_block;
-    ata_read_sector(sector, inode_bitmap);
-    ata_read_sector(sector + 1, inode_bitmap + 512);
+    read(sector, 1024, inode_bitmap);
 
     for (uint32_t i = 0; i < sb.inodes_per_group; i++) {
         uint32_t byte_idx = i / 8;
@@ -746,8 +721,7 @@ void read_directory_entries(uint32_t inode_number) {
         }
         
         uint32_t sector = block_num * sectors_per_block;
-        ata_read_sector(sector, block_buffer);
-        ata_read_sector(sector + 1, block_buffer + 512);
+        read(sector, 1024, block_buffer);
         
         uint32_t offset = 0;
         while (offset < block_size_bytes) {
@@ -799,10 +773,9 @@ void update_superblock(uint32_t delta_inodes, uint32_t delta_blocks){
 
     uint8_t buffer[1024];
 
-    memcpy_2(buffer, &sb, sizeof(struct ext2_superblock));
+    memcpy(buffer, &sb, sizeof(struct ext2_superblock));
 
-    ata_write_sector(2, buffer);
-    ata_write_sector(3, buffer + 512);
+    write(2, 1024, buffer);
 }
 
 
@@ -810,10 +783,9 @@ void update_superblock(uint32_t delta_inodes, uint32_t delta_blocks){
 void parse_blockgroup_descriptors(void) {
     uint8_t buffer[1024];
 
-    ata_read_sector(4, buffer);
-    ata_read_sector(5, buffer + 512);
+    read(4, 1024, buffer);
 
-    memcpy_2(bgdt, buffer, sizeof(bgdt));
+    memcpy(bgdt, buffer, sizeof(bgdt));
 
     terminal_write("\n=== ext2 Block Group Descriptors ===\n");
 
@@ -851,9 +823,9 @@ void parse_blockgroup_descriptors(void) {
 
 void parse_superblock(void) {
     uint8_t buffer[1024];
-    ata_read_sector(2, buffer);
-    ata_read_sector(3, buffer + 512);
-    
+
+    read(2, 1024, buffer);
+
     sb = *(struct ext2_superblock *)buffer;
     
     terminal_set_color(0x00FF00);

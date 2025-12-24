@@ -75,8 +75,6 @@ static struct ext2_superblock sb;
 static struct ext2_group_descriptor bgdt[32];
 static struct ext2_inode inode;
 
-void *memcpy_2(void *restrict dest, const void *restrict src, size_t n);
-
 void read_inode(uint32_t inode_number);
 
 void create_file(uint32_t parent_inode, const char *filename);

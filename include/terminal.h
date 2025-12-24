@@ -37,6 +37,8 @@ void terminal_enable_prompt(bool enable);
 
 void terminal_putchar(char c);
 
+void terminal_putchar_external(char c);
+
 void terminal_draw_hline_single(uint32_t color, uint32_t x, uint32_t y, uint32_t length);
 
 void terminal_draw_vline_single(uint32_t color, uint32_t x, uint32_t y, uint32_t length);

@@ -69,22 +69,53 @@ void terminal_putchar(char c) {
 
         cmd[cmd_len] = '\0';
         accept_input = false; 
-        if (strcmp(cmd, "clear")) {
+
+        char cmd_trimmed[64];
+        getfirststr(cmd, cmd_trimmed, sizeof(cmd_trimmed));
+
+
+        serial_write(cmd_trimmed);
+        serial_write("\n");
+
+        if (strcmp(cmd_trimmed, "clear")) {
             terminal_clear();
         }
-        else if (strcmp(cmd, "dir")) {
-            terminal_clear();
+        else if (strcmp(cmd_trimmed, "dir")) {
             read_directory_entries(2);
         }
-        else if (strcmp(cmd, "touch")) {
-            serial_write("touch\n");
+        else if (strcmp(cmd_trimmed, "echo")) {
+            const char* to_echo = cmd;
+            while (*to_echo && (*to_echo == ' ' || *to_echo == '\t')) {
+                to_echo++;
+            }
+            while (*to_echo && *to_echo != ' ' && *to_echo != '\t') {
+                to_echo++;
+            }
+            while (*to_echo && (*to_echo == ' ' || *to_echo == '\t')) {
+                to_echo++;
+            }
+            terminal_write(to_echo);
+            terminal_write("\n");
+        }
+
+        else if(strcmp(cmd_trimmed, "cat")) {
+            print_file(12);
+        }
+
+        else if (strcmp(cmd_trimmed, "help")) {
+            terminal_write("Available commands:\n");
+            terminal_write(" - clear : Clear the terminal screen\n");
+            terminal_write(" - dir   : List directory entries of root\n");
+            terminal_write(" - echo  : Echo input text\n");
+            terminal_write(" - help  : Show this help message\n");
         }
         cmd_len = 0;
-
 
         if (auto_prompt) {
             terminal_prompt();
         }
+
+
     } else if (c == '\t') {
         cursor_x = ((cursor_x / 32) + 1) * 32;
         if (cursor_x >= g_fb->width - 8) {
@@ -108,7 +139,45 @@ void terminal_putchar(char c) {
     }
 }
 
+void terminal_putchar_external(char c) {
+    if (!g_fb || !g_glyphs || !g_hdr) {
+        return;
+    }
 
+    if (c == '\b') {
+        if (cursor_x > 26) {
+            cursor_x -= 8;
+            for (int y = 0; y < g_hdr->charsize; y++) {
+                for (int x = 0; x < 8; x++) {
+                    DrawPixel(cursor_x + x, cursor_y + y, 0x000000, g_fb);
+                }
+            }
+        }
+    } else if (c == '\n') {
+        cursor_x = 10;
+        cursor_y += g_hdr->charsize;
+        if (cursor_y >= g_fb->height - g_hdr->charsize) {
+            cursor_y = 10;
+        }
+
+    } else if (c == '\t') {
+        cursor_x = ((cursor_x / 32) + 1) * 32;
+        if (cursor_x >= g_fb->width - 8) {
+            cursor_x = 10;
+            cursor_y += g_hdr->charsize;
+        }
+    } else {
+        DrawChar(cursor_x, cursor_y, c, text_color, g_fb, g_glyphs, g_hdr);
+        cursor_x += 8;
+        if (cursor_x >= g_fb->width - 8) {
+            cursor_x = 10;
+            cursor_y += g_hdr->charsize;
+            if (cursor_y >= g_fb->height - g_hdr->charsize) {
+                cursor_y = 10;
+            }
+        }
+    }
+}
 
 void terminal_draw_hline_single(uint32_t color, uint32_t x, uint32_t y, uint32_t length) {
     size_t start_offset = y * fb_width + x;
@@ -141,8 +210,8 @@ void terminal_draw_vline(uint32_t color, uint32_t x, uint32_t y, uint32_t length
 }
 
 void terminal_prompt() {
-    terminal_putchar('>');
-    terminal_putchar(' ');
+    terminal_putchar_external('>');
+    terminal_putchar_external(' ');
     accept_input = true;
 }
 
@@ -151,7 +220,7 @@ void terminal_write(const char* s) {
     accept_input = false;
 
     while (*s) {
-        terminal_putchar(*s++);
+        terminal_putchar_external(*s++);
     }
 
     accept_input = prev;

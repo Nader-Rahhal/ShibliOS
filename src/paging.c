@@ -4,14 +4,7 @@
 #include "limine.h"
 #include "terminal.h"
 #include "paging.h"
-
-void *k_memset(void *s, int c, size_t n) {
-    uint8_t *p = (uint8_t *)s;
-    for (size_t i = 0; i < n; i++) {
-        p[i] = (uint8_t)c;
-    }
-    return s;
-}
+#include "memory.h"
 
 void *phys_to_virt(uint64_t phys_addr) {
     return (void *)(hhdm_offset + phys_addr);
@@ -38,7 +31,7 @@ void pmm_init(void) {
         return;
     }
     
-    k_memset(page_bitmap, 0xFF, sizeof(page_bitmap));
+    memset(page_bitmap, 0xFF, sizeof(page_bitmap));
     
     struct limine_memmap_response *memmap = memmap_request.response;
 
@@ -125,7 +118,7 @@ void map_page(uint64_t virtual_addr, uint64_t physical_addr, uint64_t flags) {
         if (!new_pdpt_phys) return;
         
         struct pdpt_entry *new_pdpt = (struct pdpt_entry *)phys_to_virt(new_pdpt_phys);
-        k_memset(new_pdpt, 0, PAGE_SIZE);
+        memset(new_pdpt, 0, PAGE_SIZE);
         
         pml4e->present = 1;
         pml4e->rw = 1;
@@ -142,7 +135,7 @@ void map_page(uint64_t virtual_addr, uint64_t physical_addr, uint64_t flags) {
         if (!new_pd_phys) return;
         
         struct pd_entry *new_pd = (struct pd_entry *)phys_to_virt(new_pd_phys);
-        k_memset(new_pd, 0, PAGE_SIZE);
+        memset(new_pd, 0, PAGE_SIZE);
         
         pdpte->present = 1;
         pdpte->rw = 1;
@@ -160,7 +153,7 @@ void map_page(uint64_t virtual_addr, uint64_t physical_addr, uint64_t flags) {
         if (!new_pt_phys) return;
         
         struct pt_entry *new_pt = (struct pt_entry *)phys_to_virt(new_pt_phys);
-        k_memset(new_pt, 0, PAGE_SIZE);
+        memset(new_pt, 0, PAGE_SIZE);
         
         pde->present = 1;
         pde->rw = 1;
